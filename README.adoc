@@ -1,0 +1,46 @@
+= Flatten Kotlin recipe for OpenRewrite
+
+The Kotlin coding conventions advise omitting the common root package:
+
+[quote,'https://kotlinlang.org/docs/coding-conventions.html#source-code-organization[Source code organization^]']
+____
+In pure Kotlin projects, the recommended directory structure follows the package structure with the common root package omitted.
+For example, if all the code in the project is in the `org.example.kotlin` package and its subpackages, files with the `org.example.kotlin` package should be placed directly under the source root, and files in `org.example.kotlin.network.socket` should be in the `network/socket` subdirectory of the source root.
+____
+
+== Usage
+
+[source,xml]
+.pom.xml
+----
+<build>
+  <plugins>
+    <plugin>
+      <groupId>org.openrewrite.maven</groupId>
+      <artifactId>rewrite-maven-plugin</artifactId>
+      <version>6.8.0</version>
+      <configuration>
+        <activeRecipes>
+          <recipe>com.yourorg.yourproject.Migrate</recipe>
+        </activeRecipes>
+      </configuration>
+    </plugin>
+  </plugins>
+</build>
+----
+
+[source,yaml]
+.rewrite.yml
+----
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: ch.frankel.MyMigration
+recipeList:
+  - ch.frankel.openrewrite.kotlin.FlattenStructure:
+      rootPackage: com.acme
+----
+
+[WARNING]
+====
+The plugin assumes you store your source files under `src/main/kotlin`.
+====
