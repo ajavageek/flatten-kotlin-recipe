@@ -11,7 +11,7 @@ import org.openrewrite.kotlin.tree.K
 import java.nio.file.Paths
 import java.util.stream.Stream
 
-class FlattenStructureTest {
+class FlattenStructureWithRootPackageSetTest {
 
     @ParameterizedTest
     @MethodSource("testData")
