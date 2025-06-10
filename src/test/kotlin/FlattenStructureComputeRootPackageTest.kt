@@ -41,7 +41,7 @@ class FlattenStructureComputeRootPackageTest {
         // When
         val recipe = FlattenStructure()
         val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
+        val acc = AtomicReference<Pair<Int, String?>>(0 to null)
         recipe.getScanner(acc).visit(modifiedCu1, context)
         recipe.getScanner(acc).visit(modifiedCu2, context)
         val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
@@ -79,7 +79,7 @@ class FlattenStructureComputeRootPackageTest {
         // When
         val recipe = FlattenStructure()
         val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
+        val acc = AtomicReference<Pair<Int, String?>>(0 to null)
         cus.forEach {
             recipe.getScanner(acc).visit(it, context)
         }
@@ -121,7 +121,7 @@ class FlattenStructureComputeRootPackageTest {
         // When
         val recipe = FlattenStructure()
         val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
+        val acc = AtomicReference<Pair<Int, String?>>(0 to null)
         recipe.getScanner(acc).visit(modifiedCu1, context)
         recipe.getScanner(acc).visit(modifiedCu2, context)
         val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
@@ -144,29 +144,38 @@ class FlattenStructureComputeRootPackageTest {
             
             class Bar
         """
+        val sourceCode3 = """
+            package org.frankel.blog.baz
+            
+            class Baz
+        """
         // Given
         val parser = KotlinParser.builder().build()
         val cus = parser.parse(
             InMemoryExecutionContext(),
-            sourceCode1, sourceCode2
+            sourceCode1, sourceCode2, sourceCode3
         ).collect(Collectors.toList())
         val modifiedCu1 =
             (cus[0] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"))
         val modifiedCu2 =
             (cus[1] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/org/frankel/blog/bar/Bar.kt"))
+        val modifiedCu3 =
+            (cus[1] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/org/frankel/blog/baz/Baz.kt"))
 
         // When
         val recipe = FlattenStructure()
         val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
+        val acc = AtomicReference<Pair<Int, String?>>(0 to null)
         recipe.getScanner(acc).visit(modifiedCu1, context)
         recipe.getScanner(acc).visit(modifiedCu2, context)
+        recipe.getScanner(acc).visit(modifiedCu3, context)
         val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
         val result2 = recipe.getVisitor(acc).visit(modifiedCu2, context)
+        val result3 = recipe.getVisitor(acc).visit(modifiedCu3, context)
 
         // Then
         assertEquals(Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"), (result1 as SourceFile).sourcePath)
         assertEquals(Paths.get("src/main/kotlin/org/frankel/blog/bar/Bar.kt"), (result2 as SourceFile).sourcePath)
-
+        assertEquals(Paths.get("src/main/kotlin/org/frankel/blog/baz/Baz.kt"), (result3 as SourceFile).sourcePath)
     }
 }
