@@ -23,20 +23,20 @@ class FlattenStructure(private val rootPackage: String?) : ScanningRecipe<Atomic
     override fun getScanner(acc: AtomicReference<String?>): TreeVisitor<*, ExecutionContext> {
         // Root package manually set, skip computation
         if (rootPackage != null) return TreeVisitor.noop<Tree, ExecutionContext>()
+        val currentPackage = acc.get()
+        // Disjoint packages, skip computation
+        if (currentPackage == "") return TreeVisitor.noop<Tree, ExecutionContext>()
         return object : KotlinIsoVisitor<ExecutionContext>() {
             override fun visitCompilationUnit(cu: K.CompilationUnit, ctx: ExecutionContext): K.CompilationUnit {
                 val packageName = cu.packageDeclaration?.packageName ?: return cu
-                val computedPackage = acc.get()
-                when (computedPackage) {
-                    // First scanned file
-                    null -> acc.set(packageName)
-                    // Disjoint packages
-                    "" -> {}
-                    else -> {
-                        // Find the longest common prefix between the computed package and the current one
-                        val commonPrefix = packageName.commonPrefixWith(computedPackage).removeSuffix(".")
-                        acc.set(commonPrefix)
-                    }
+                // Different call than the one above!
+                val currentPackage = acc.get()
+                // First scanned file
+                if (currentPackage == null) acc.set(packageName)
+                else {
+                    // Find the longest common prefix between the stored package and the current one
+                    val commonPrefix = packageName.commonPrefixWith(currentPackage).removeSuffix(".")
+                    acc.set(commonPrefix)
                 }
                 return cu
             }
