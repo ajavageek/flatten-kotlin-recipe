@@ -2,17 +2,19 @@ package ch.frankel.openrewrite.kotlin
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.openrewrite.InMemoryExecutionContext
-import org.openrewrite.SourceFile
-import org.openrewrite.kotlin.KotlinParser
-import org.openrewrite.kotlin.tree.K
+import org.openrewrite.kotlin.Assertions.kotlin
+import org.openrewrite.test.RecipeSpec
+import org.openrewrite.test.RewriteTest
 import java.nio.file.Paths
 import java.util.Locale.getDefault
-import java.util.concurrent.atomic.AtomicReference
-import java.util.stream.Collectors
-import kotlin.streams.toList
 
-class FlattenStructureComputeRootPackageTest {
+class FlattenStructureComputeRootPackageTest : RewriteTest {
+
+    override fun defaults(spec: RecipeSpec) {
+        spec.recipe(FlattenStructure())
+            .cycles(1)
+            .expectedCyclesThatMakeChanges(1)
+    }
 
     @Test
     fun `should flatten ch_frankel_blog_foo and ch_frankel_blog_bar to foo and bar`() {
@@ -27,29 +29,26 @@ class FlattenStructureComputeRootPackageTest {
             class Bar
         """
 
-        // Given
-        val parser = KotlinParser.builder().build()
-        val cus = parser.parse(
-            InMemoryExecutionContext(),
-            sourceCode1, sourceCode2
-        ).collect(Collectors.toList())
-        val modifiedCu1 =
-            (cus[0] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"))
-        val modifiedCu2 =
-            (cus[1] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/bar/Bar.kt"))
-
-        // When
-        val recipe = FlattenStructure()
-        val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
-        recipe.getScanner(acc).visit(modifiedCu1, context)
-        recipe.getScanner(acc).visit(modifiedCu2, context)
-        val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
-        val result2 = recipe.getVisitor(acc).visit(modifiedCu2, context)
-
-        // Then
-        assertEquals(Paths.get("src/main/kotlin/foo/Foo.kt"), (result1 as SourceFile).sourcePath)
-        assertEquals(Paths.get("src/main/kotlin/bar/Bar.kt"), (result2 as SourceFile).sourcePath)
+        rewriteRun(
+            kotlin(sourceCode1) { spec ->
+                spec.path("src/main/kotlin/ch/frankel/blog/foo/Foo.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/foo/Foo.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+            kotlin(sourceCode2) { spec ->
+                spec.path("src/main/kotlin/org/frankel/blog/bar/Bar.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/bar/Bar.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+        )
     }
 
     @Test
@@ -67,31 +66,17 @@ class FlattenStructureComputeRootPackageTest {
             """
         }
 
-        // Given
-        val parser = KotlinParser.builder().build()
-        val cus = parser.parse(
-            InMemoryExecutionContext(),
-            *sourceCodes.toTypedArray()
-        ).map { it as K.CompilationUnit  }
-        .toList<K.CompilationUnit>()
-        .mapIndexed { i, it -> it.withSourcePath(Paths.get("src/main/kotlin/${subPackages[i]}/${capitalize(subPackages[i])}.kt")) }
-
-        // When
-        val recipe = FlattenStructure()
-        val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
-        cus.forEach {
-            recipe.getScanner(acc).visit(it, context)
+        sourceCodes.mapIndexed { i, it ->
+            kotlin(it) { spec ->
+                spec.path("src/main/kotlin/${rootPackage.replace('.', '/')}/${capitalize(subPackages[i])}.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/${subPackages[i]}/${capitalize(subPackages[i])}.kt"),
+                        it.sourcePath
+                    )
+                }
+            }
         }
-        cus.forEach {
-            recipe.getVisitor(acc).visit(it, context)
-        }
-
-        // Then
-        cus.forEachIndexed { index, it ->
-            assertEquals("src/main/kotlin/${subPackages[index]}/${capitalize(subPackages[index])}.kt", it.sourcePath.toString())
-        }
-
     }
 
     @Test
@@ -107,33 +92,30 @@ class FlattenStructureComputeRootPackageTest {
             class Bar
         """
 
-        // Given
-        val parser = KotlinParser.builder().build()
-        val cus = parser.parse(
-            InMemoryExecutionContext(),
-            sourceCode1, sourceCode2
-        ).collect(Collectors.toList())
-        val modifiedCu1 =
-            (cus[0] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/Foo.kt"))
-        val modifiedCu2 =
-            (cus[1] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/bar/Bar.kt"))
-
-        // When
-        val recipe = FlattenStructure()
-        val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
-        recipe.getScanner(acc).visit(modifiedCu1, context)
-        recipe.getScanner(acc).visit(modifiedCu2, context)
-        val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
-        val result2 = recipe.getVisitor(acc).visit(modifiedCu2, context)
-
-        // Then
-        assertEquals(Paths.get("src/main/kotlin/Foo.kt"), (result1 as SourceFile).sourcePath)
-        assertEquals(Paths.get("src/main/kotlin/bar/Bar.kt"), (result2 as SourceFile).sourcePath)
+        rewriteRun(
+            kotlin(sourceCode1) { spec ->
+                spec.path("src/main/kotlin/ch/frankel/blog/Foo.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/Foo.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+            kotlin(sourceCode2) { spec ->
+                spec.path("src/main/kotlin/ch/frankel/blog/bar/Bar.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/bar/Bar.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+        )
     }
 
     @Test
-    fun `should not flatten disjoint packages`() {
+    fun `should not flatten disjoint packages `() {
         val sourceCode1 = """
             package ch.frankel.blog.foo
             
@@ -144,29 +126,31 @@ class FlattenStructureComputeRootPackageTest {
             
             class Bar
         """
-        // Given
-        val parser = KotlinParser.builder().build()
-        val cus = parser.parse(
-            InMemoryExecutionContext(),
-            sourceCode1, sourceCode2
-        ).collect(Collectors.toList())
-        val modifiedCu1 =
-            (cus[0] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"))
-        val modifiedCu2 =
-            (cus[1] as K.CompilationUnit).withSourcePath(Paths.get("src/main/kotlin/org/frankel/blog/bar/Bar.kt"))
 
-        // When
-        val recipe = FlattenStructure()
-        val context = InMemoryExecutionContext()
-        val acc = AtomicReference<String?>(null)
-        recipe.getScanner(acc).visit(modifiedCu1, context)
-        recipe.getScanner(acc).visit(modifiedCu2, context)
-        val result1 = recipe.getVisitor(acc).visit(modifiedCu1, context)
-        val result2 = recipe.getVisitor(acc).visit(modifiedCu2, context)
-
-        // Then
-        assertEquals(Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"), (result1 as SourceFile).sourcePath)
-        assertEquals(Paths.get("src/main/kotlin/org/frankel/blog/bar/Bar.kt"), (result2 as SourceFile).sourcePath)
-
+        rewriteRun(
+            { spec ->
+                spec.recipe(FlattenStructure())
+                    .cycles(1)
+                    .expectedCyclesThatMakeChanges(0)
+            },
+            kotlin(sourceCode1) { spec ->
+                spec.path("src/main/kotlin/ch/frankel/blog/foo/Foo.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/ch/frankel/blog/foo/Foo.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+            kotlin(sourceCode2) { spec ->
+                spec.path("src/main/kotlin/org/frankel/blog/bar/Bar.kt")
+                spec.afterRecipe {
+                    assertEquals(
+                        Paths.get("src/main/kotlin/org/frankel/blog/bar/Bar.kt"),
+                        it.sourcePath
+                    )
+                }
+            },
+        )
     }
 }
